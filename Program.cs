@@ -37,85 +37,71 @@ const string winMessage = """
 const string loseMessage = "\n  Game abandoned. See you soon!";
 const string exitPrompt = "  Press any key to quit...";
 
-// ── Maze generation with "recursive backtracker" ──
+// ── Main program ──
 var grid = new CellType[width, height];
+int playerX = 0, playerY = 0;
 
-for (var y = 0; y < height; y++)
-    for (var x = 0; x < width; x++)
-        grid[x, y] = CellType.Wall;
+GenerateMaze(grid, playerX, playerY);
+DrawGameScreen();
 
-var stackX = new int[cellW * cellH];
-var stackY = new int[cellW * cellH];
-var stackTop = 0;
+// ── Game loop ──
+var won = false;
 
-var visited = new bool[cellW, cellH];
-
-int[] dx = { 0, 1, 0, -1 };
-int[] dy = { -1, 0, 1, 0 };
-
-var rng = new Random();
-
-int startCX = 0, startCY = 0;
-visited[startCX, startCY] = true;
-grid[startCX * 2, startCY * 2] = CellType.Corridor;
-
-stackX[stackTop] = startCX;
-stackY[stackTop] = startCY;
-stackTop++;
-
-while (stackTop > 0)
+while (!won)
 {
-    var cx = stackX[stackTop - 1];
-    var cy = stackY[stackTop - 1];
+    var key = Console.ReadKey(true).Key;
 
-    int[] directions = { 0, 1, 2, 3 };
-    rng.Shuffle(directions);
+    var nx = playerX;
+    var ny = playerY;
+    var quit = false;
 
-    var found = false;
-    foreach (var dir in directions)
+    switch (key)
     {
-        var nx = cx + dx[dir];
-        var ny = cy + dy[dir];
-        if (nx >= 0 && nx < cellW && ny >= 0 && ny < cellH && !visited[nx, ny])
-        {
-            grid[cx * 2 + dx[dir], cy * 2 + dy[dir]] = CellType.Corridor;
-            grid[nx * 2, ny * 2] = CellType.Corridor;
-            visited[nx, ny] = true;
-            stackX[stackTop] = nx;
-            stackY[stackTop] = ny;
-            stackTop++;
-            found = true;
-            break;
-        }
+        case ConsoleKey.Z:
+        case ConsoleKey.UpArrow:    ny--; break;
+        case ConsoleKey.S:
+        case ConsoleKey.DownArrow:  ny++; break;
+        case ConsoleKey.Q:
+        case ConsoleKey.LeftArrow:  nx--; break;
+        case ConsoleKey.D:
+        case ConsoleKey.RightArrow: nx++; break;
+        case ConsoleKey.Escape:     quit = true; break;
     }
-    if (!found) stackTop--;
+    if (quit) break;
+
+    if (nx >= 0 && nx < width && ny >= 0 && ny < height && grid[nx, ny] != CellType.Wall)
+    {
+        if (grid[nx, ny] == CellType.Exit) won = true;
+
+        grid[playerX, playerY] = CellType.Corridor;
+        DrawCell(playerX, playerY);
+
+        playerX = nx;
+        playerY = ny;
+        grid[playerX, playerY] = CellType.Player;
+        DrawCell(playerX, playerY);
+    }
 }
 
-// ── Player and exit positions ──
-int playerX = 0, playerY = 0;
-var exitX = (cellW - 1) * 2;
-var exitY = (cellH - 1) * 2;
+// ── End screen ──
+if (won)
+    DrawTextXY(0, offsetY + height + endScreenOffset, winMessage, winColor);
+else
+    DrawTextXY(0, offsetY + height + endScreenOffset, loseMessage, loseColor);
 
-grid[playerX, playerY] = CellType.Player;
-grid[exitX, exitY] = CellType.Exit;
+DrawTextXY(0, offsetY + height + exitPromptOffset, exitPrompt);
+Console.CursorVisible = true;
+Console.ReadKey(true);
 
-// ── Initial full draw ──
-Console.Clear();
-Console.CursorVisible = false;
-
-Console.SetCursorPosition(0, 0);
-Console.ForegroundColor = titleColor;
-Console.WriteLine(titleBanner);
-Console.ResetColor();
-
-for (var y = 0; y < height; y++)
-    for (var x = 0; x < width; x++)
-        DrawCell(x, y);
-
-Console.SetCursorPosition(0, offsetY + height + controlsLineOffset);
-Console.ForegroundColor = controlsColor;
-Console.Write(controlsText);
-Console.ResetColor();
+// ── Functions ──
+void DrawTextXY(int x, int y, string text, ConsoleColor? color = null)
+{
+    Console.SetCursorPosition(x, y);
+    if (color.HasValue)
+        Console.ForegroundColor = color.Value;
+    Console.WriteLine(text);
+    Console.ResetColor();
+}
 
 void DrawCell(int cx, int cy)
 {
@@ -132,64 +118,77 @@ void DrawCell(int cx, int cy)
     Console.ResetColor();
 }
 
-// ── Game loop ──
-var won = false;
-
-while (!won)
+void DrawGameScreen()
 {
-    var key = Console.ReadKey(true).Key;
+    Console.Clear();
+    Console.CursorVisible = false;
 
-    var nx2 = playerX;
-    var ny2 = playerY;
-    var quit = false;
+    DrawTextXY(0, 0, titleBanner, titleColor);
 
-    switch (key)
+    for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+            DrawCell(x, y);
+
+    DrawTextXY(0, offsetY + height + controlsLineOffset, controlsText, controlsColor);
+}
+
+void GenerateMaze(CellType[,] maze, int startX, int startY)
+{
+    for (var y = 0; y < height; y++)
+        for (var x = 0; x < width; x++)
+            maze[x, y] = CellType.Wall;
+
+    var stackX = new int[cellW * cellH];
+    var stackY = new int[cellW * cellH];
+    var stackTop = 0;
+
+    var visited = new bool[cellW, cellH];
+
+    int[] dx = { 0, 1, 0, -1 };
+    int[] dy = { -1, 0, 1, 0 };
+
+    var rng = new Random();
+
+    var startCX = startX / 2;
+    var startCY = startY / 2;
+    visited[startCX, startCY] = true;
+    maze[startCX * 2, startCY * 2] = CellType.Corridor;
+
+    stackX[stackTop] = startCX;
+    stackY[stackTop] = startCY;
+    stackTop++;
+
+    while (stackTop > 0)
     {
-        case ConsoleKey.Z:
-        case ConsoleKey.UpArrow:    ny2--; break;
-        case ConsoleKey.S:
-        case ConsoleKey.DownArrow:  ny2++; break;
-        case ConsoleKey.Q:
-        case ConsoleKey.LeftArrow:  nx2--; break;
-        case ConsoleKey.D:
-        case ConsoleKey.RightArrow: nx2++; break;
-        case ConsoleKey.Escape:     quit = true; break;
+        var cx = stackX[stackTop - 1];
+        var cy = stackY[stackTop - 1];
+
+        int[] directions = { 0, 1, 2, 3 };
+        rng.Shuffle(directions);
+
+        var found = false;
+        foreach (var dir in directions)
+        {
+            var nx = cx + dx[dir];
+            var ny = cy + dy[dir];
+            if (nx >= 0 && nx < cellW && ny >= 0 && ny < cellH && !visited[nx, ny])
+            {
+                maze[cx * 2 + dx[dir], cy * 2 + dy[dir]] = CellType.Corridor;
+                maze[nx * 2, ny * 2] = CellType.Corridor;
+                visited[nx, ny] = true;
+                stackX[stackTop] = nx;
+                stackY[stackTop] = ny;
+                stackTop++;
+                found = true;
+                break;
+            }
+        }
+        if (!found) stackTop--;
     }
-    if (quit) break;
 
-    if (nx2 >= 0 && nx2 < width && ny2 >= 0 && ny2 < height && grid[nx2, ny2] != CellType.Wall)
-    {
-        if (grid[nx2, ny2] == CellType.Exit) won = true;
-
-        grid[playerX, playerY] = CellType.Corridor;
-        DrawCell(playerX, playerY);
-
-        playerX = nx2;
-        playerY = ny2;
-        grid[playerX, playerY] = CellType.Player;
-        DrawCell(playerX, playerY);
-    }
+    maze[startX, startY] = CellType.Player;
+    maze[(cellW - 1) * 2, (cellH - 1) * 2] = CellType.Exit;
 }
-
-// ── End screen ──
-Console.SetCursorPosition(0, offsetY + height + endScreenOffset);
-if (won)
-{
-    Console.ForegroundColor = winColor;
-    Console.WriteLine(winMessage);
-    Console.ResetColor();
-}
-else
-{
-    Console.ForegroundColor = loseColor;
-    Console.WriteLine(loseMessage);
-    Console.ResetColor();
-}
-
-Console.SetCursorPosition(0, offsetY + height + exitPromptOffset);
-Console.WriteLine(exitPrompt);
-Console.CursorVisible = true;
-Console.ReadKey(true);
 
 // ── Types ──
 enum CellType { Corridor, Wall, Player, Exit }
