@@ -138,53 +138,30 @@ void GenerateMaze(CellType[,] maze, int startX, int startY)
         for (var x = 0; x < width; x++)
             maze[x, y] = CellType.Wall;
 
-    var stackX = new int[cellW * cellH];
-    var stackY = new int[cellW * cellH];
-    var stackTop = 0;
-
-    var visited = new bool[cellW, cellH];
-
     int[] dx = { 0, 1, 0, -1 };
     int[] dy = { -1, 0, 1, 0 };
-
     var rng = new Random();
 
-    var startCX = startX / 2;
-    var startCY = startY / 2;
-    visited[startCX, startCY] = true;
-    maze[startCX * 2, startCY * 2] = CellType.Corridor;
-
-    stackX[stackTop] = startCX;
-    stackY[stackTop] = startCY;
-    stackTop++;
-
-    while (stackTop > 0)
+    void Carve(int cx, int cy)
     {
-        var cx = stackX[stackTop - 1];
-        var cy = stackY[stackTop - 1];
+        maze[cx * 2, cy * 2] = CellType.Corridor;
 
         int[] directions = { 0, 1, 2, 3 };
         rng.Shuffle(directions);
 
-        var found = false;
         foreach (var dir in directions)
         {
             var nx = cx + dx[dir];
             var ny = cy + dy[dir];
-            if (nx >= 0 && nx < cellW && ny >= 0 && ny < cellH && !visited[nx, ny])
+            if (nx >= 0 && nx < cellW && ny >= 0 && ny < cellH && maze[nx * 2, ny * 2] == CellType.Wall)
             {
                 maze[cx * 2 + dx[dir], cy * 2 + dy[dir]] = CellType.Corridor;
-                maze[nx * 2, ny * 2] = CellType.Corridor;
-                visited[nx, ny] = true;
-                stackX[stackTop] = nx;
-                stackY[stackTop] = ny;
-                stackTop++;
-                found = true;
-                break;
+                Carve(nx, ny);
             }
         }
-        if (!found) stackTop--;
     }
+
+    Carve(startX / 2, startY / 2);
 
     maze[startX, startY] = CellType.Player;
     maze[(cellW - 1) * 2, (cellH - 1) * 2] = CellType.Exit;
