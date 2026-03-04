@@ -109,17 +109,8 @@ Console.WriteLine(titleBanner);
 Console.ResetColor();
 
 for (var y = 0; y < height; y++)
-{
     for (var x = 0; x < width; x++)
-    {
-        Console.SetCursorPosition(offsetX + x, offsetY + y);
-        var cell = grid[x, y];
-        if (cell == CellType.Wall)        { Console.ForegroundColor = wallColor;     Console.Write("█"); }
-        else if (cell == CellType.Player) { Console.ForegroundColor = playerColor;   Console.Write("@"); }
-        else if (cell == CellType.Exit)   { Console.ForegroundColor = exitColor;     Console.Write("★"); }
-        else                              { Console.ForegroundColor = corridorColor;  Console.Write("·"); }
-    }
-}
+        DrawCell(x, y);
 
 Console.SetCursorPosition(0, offsetY + height + controlsLineOffset);
 Console.ForegroundColor = controlsColor;
@@ -129,11 +120,15 @@ Console.ResetColor();
 void DrawCell(int cx, int cy)
 {
     Console.SetCursorPosition(offsetX + cx, offsetY + cy);
-    var cell = grid[cx, cy];
-    if (cell == CellType.Wall)        { Console.ForegroundColor = wallColor;     Console.Write("█"); }
-    else if (cell == CellType.Player) { Console.ForegroundColor = playerColor;   Console.Write("@"); }
-    else if (cell == CellType.Exit)   { Console.ForegroundColor = exitColor;     Console.Write("★"); }
-    else                              { Console.ForegroundColor = corridorColor;  Console.Write("·"); }
+    var (color, pattern) = grid[cx, cy] switch
+    {
+        CellType.Wall   => (wallColor, "█"),
+        CellType.Player => (playerColor, "@"),
+        CellType.Exit   => (exitColor, "★"),
+        _               => (corridorColor, "·")
+    };
+    Console.ForegroundColor = color;
+    Console.Write(pattern);
     Console.ResetColor();
 }
 
@@ -146,12 +141,21 @@ while (!won)
 
     var nx2 = playerX;
     var ny2 = playerY;
+    var quit = false;
 
-    if      (key == ConsoleKey.Z || key == ConsoleKey.UpArrow)    ny2--;
-    else if (key == ConsoleKey.S || key == ConsoleKey.DownArrow)  ny2++;
-    else if (key == ConsoleKey.Q || key == ConsoleKey.LeftArrow)  nx2--;
-    else if (key == ConsoleKey.D || key == ConsoleKey.RightArrow) nx2++;
-    else if (key == ConsoleKey.Escape) break;
+    switch (key)
+    {
+        case ConsoleKey.Z:
+        case ConsoleKey.UpArrow:    ny2--; break;
+        case ConsoleKey.S:
+        case ConsoleKey.DownArrow:  ny2++; break;
+        case ConsoleKey.Q:
+        case ConsoleKey.LeftArrow:  nx2--; break;
+        case ConsoleKey.D:
+        case ConsoleKey.RightArrow: nx2++; break;
+        case ConsoleKey.Escape:     quit = true; break;
+    }
+    if (quit) break;
 
     if (nx2 >= 0 && nx2 < width && ny2 >= 0 && ny2 < height && grid[nx2, ny2] != CellType.Wall)
     {
