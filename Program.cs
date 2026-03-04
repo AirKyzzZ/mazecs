@@ -1,30 +1,48 @@
 using System;
 
-// ============================================================
-//  ASCII MAZE - C# Console
-//  Grid: int[50, 20]  (width=50, height=20)
-//  0 = corridor   1 = wall   2 = player   3 = exit
-//  Movement: Z/Q/S/D or arrows
-//  Optimized: only modified cells are redrawn
-//             via Console.SetCursorPosition()
-// ============================================================
-
-var grid = new int[50, 20];
-
+// ── Numeric constants ──
 const int width = 50;
 const int height = 20;
-
-// Vertical offset in console (number of title lines)
-const int offsetY = 3;
 const int offsetX = 0;
+const int offsetY = 3;
+const int cellW = width / 2;
+const int cellH = height / 2;
+const int controlsLineOffset = 1;
+const int endScreenOffset = 3;
+const int exitPromptOffset = 8;
+
+// ── Color constants ──
+const ConsoleColor titleColor = ConsoleColor.Cyan;
+const ConsoleColor wallColor = ConsoleColor.DarkGray;
+const ConsoleColor playerColor = ConsoleColor.Yellow;
+const ConsoleColor exitColor = ConsoleColor.Green;
+const ConsoleColor corridorColor = ConsoleColor.DarkBlue;
+const ConsoleColor controlsColor = ConsoleColor.DarkCyan;
+const ConsoleColor winColor = ConsoleColor.Green;
+const ConsoleColor loseColor = ConsoleColor.Red;
+
+// ── String constants ──
+const string titleBanner = """
+    ╔══════════════════════════════════════════════════╗
+    ║          🏃 ASCII MAZE  C#  🏃                   ║
+    ╚══════════════════════════════════════════════════╝
+    """;
+const string controlsText = "  [Z/↑] Up   [S/↓] Down   [Q/←] Left   [D/→] Right   [Esc] Quit";
+const string winMessage = """
+      ╔════════════════════════════════╗
+      ║   🎉  CONGRATULATIONS!  🎉     ║
+      ║   You found the exit!          ║
+      ╚════════════════════════════════╝
+    """;
+const string loseMessage = "\n  Game abandoned. See you soon!";
+const string exitPrompt = "  Press any key to quit...";
 
 // ── Maze generation with "recursive backtracker" ──
-const int cellW = width / 2;   // 25
-const int cellH = height / 2;  // 10
+var grid = new CellType[width, height];
 
 for (var y = 0; y < height; y++)
     for (var x = 0; x < width; x++)
-        grid[x, y] = 1;
+        grid[x, y] = CellType.Wall;
 
 var stackX = new int[cellW * cellH];
 var stackY = new int[cellW * cellH];
@@ -39,7 +57,7 @@ var rng = new Random();
 
 int startCX = 0, startCY = 0;
 visited[startCX, startCY] = true;
-grid[startCX * 2, startCY * 2] = 0;
+grid[startCX * 2, startCY * 2] = CellType.Corridor;
 
 stackX[stackTop] = startCX;
 stackY[stackTop] = startCY;
@@ -51,21 +69,17 @@ while (stackTop > 0)
     var cy = stackY[stackTop - 1];
 
     int[] directions = { 0, 1, 2, 3 };
-    for (var i = 3; i > 0; i--)
-    {
-        var j = rng.Next(i + 1);
-        var tmp = directions[i]; directions[i] = directions[j]; directions[j] = tmp;
-    }
+    rng.Shuffle(directions);
 
     var found = false;
-    for (var d = 0; d < 4; d++)
+    foreach (var dir in directions)
     {
-        var nx = cx + dx[directions[d]];
-        var ny = cy + dy[directions[d]];
+        var nx = cx + dx[dir];
+        var ny = cy + dy[dir];
         if (nx >= 0 && nx < cellW && ny >= 0 && ny < cellH && !visited[nx, ny])
         {
-            grid[cx * 2 + dx[directions[d]], cy * 2 + dy[directions[d]]] = 0;
-            grid[nx * 2, ny * 2] = 0;
+            grid[cx * 2 + dx[dir], cy * 2 + dy[dir]] = CellType.Corridor;
+            grid[nx * 2, ny * 2] = CellType.Corridor;
             visited[nx, ny] = true;
             stackX[stackTop] = nx;
             stackY[stackTop] = ny;
@@ -82,18 +96,16 @@ int playerX = 0, playerY = 0;
 var exitX = (cellW - 1) * 2;
 var exitY = (cellH - 1) * 2;
 
-grid[playerX, playerY] = 2;
-grid[exitX, exitY] = 3;
+grid[playerX, playerY] = CellType.Player;
+grid[exitX, exitY] = CellType.Exit;
 
-// ── Initial full draw (once) ──
+// ── Initial full draw ──
 Console.Clear();
 Console.CursorVisible = false;
 
 Console.SetCursorPosition(0, 0);
-Console.ForegroundColor = ConsoleColor.Cyan;
-Console.WriteLine("╔══════════════════════════════════════════════════╗");
-Console.WriteLine("║          🏃 ASCII MAZE  C#  🏃                   ║");
-Console.WriteLine("╚══════════════════════════════════════════════════╝");
+Console.ForegroundColor = titleColor;
+Console.WriteLine(titleBanner);
 Console.ResetColor();
 
 for (var y = 0; y < height; y++)
@@ -102,27 +114,26 @@ for (var y = 0; y < height; y++)
     {
         Console.SetCursorPosition(offsetX + x, offsetY + y);
         var cell = grid[x, y];
-        if (cell == 1)      { Console.ForegroundColor = ConsoleColor.DarkGray;  Console.Write("█"); }
-        else if (cell == 2) { Console.ForegroundColor = ConsoleColor.Yellow;    Console.Write("@"); }
-        else if (cell == 3) { Console.ForegroundColor = ConsoleColor.Green;     Console.Write("★"); }
-        else                { Console.ForegroundColor = ConsoleColor.DarkBlue;  Console.Write("·"); }
+        if (cell == CellType.Wall)        { Console.ForegroundColor = wallColor;     Console.Write("█"); }
+        else if (cell == CellType.Player) { Console.ForegroundColor = playerColor;   Console.Write("@"); }
+        else if (cell == CellType.Exit)   { Console.ForegroundColor = exitColor;     Console.Write("★"); }
+        else                              { Console.ForegroundColor = corridorColor;  Console.Write("·"); }
     }
 }
 
-Console.SetCursorPosition(0, offsetY + height + 1);
-Console.ForegroundColor = ConsoleColor.DarkCyan;
-Console.Write("  [Z/↑] Up   [S/↓] Down   [Q/←] Left   [D/→] Right   [Esc] Quit");
+Console.SetCursorPosition(0, offsetY + height + controlsLineOffset);
+Console.ForegroundColor = controlsColor;
+Console.Write(controlsText);
 Console.ResetColor();
 
-// ── Local action: redraw ONE single cell via SetCursorPosition ──
 void DrawCell(int cx, int cy)
 {
     Console.SetCursorPosition(offsetX + cx, offsetY + cy);
     var cell = grid[cx, cy];
-    if (cell == 1)      { Console.ForegroundColor = ConsoleColor.DarkGray;  Console.Write("█"); }
-    else if (cell == 2) { Console.ForegroundColor = ConsoleColor.Yellow;    Console.Write("@"); }
-    else if (cell == 3) { Console.ForegroundColor = ConsoleColor.Green;     Console.Write("★"); }
-    else                { Console.ForegroundColor = ConsoleColor.DarkBlue;  Console.Write("·"); }
+    if (cell == CellType.Wall)        { Console.ForegroundColor = wallColor;     Console.Write("█"); }
+    else if (cell == CellType.Player) { Console.ForegroundColor = playerColor;   Console.Write("@"); }
+    else if (cell == CellType.Exit)   { Console.ForegroundColor = exitColor;     Console.Write("★"); }
+    else                              { Console.ForegroundColor = corridorColor;  Console.Write("·"); }
     Console.ResetColor();
 }
 
@@ -142,39 +153,39 @@ while (!won)
     else if (key == ConsoleKey.D || key == ConsoleKey.RightArrow) nx2++;
     else if (key == ConsoleKey.Escape) break;
 
-    if (nx2 >= 0 && nx2 < width && ny2 >= 0 && ny2 < height && grid[nx2, ny2] != 1)
+    if (nx2 >= 0 && nx2 < width && ny2 >= 0 && ny2 < height && grid[nx2, ny2] != CellType.Wall)
     {
-        if (grid[nx2, ny2] == 3) won = true;
+        if (grid[nx2, ny2] == CellType.Exit) won = true;
 
-        grid[playerX, playerY] = 0;
+        grid[playerX, playerY] = CellType.Corridor;
         DrawCell(playerX, playerY);
 
         playerX = nx2;
         playerY = ny2;
-        grid[playerX, playerY] = 2;
+        grid[playerX, playerY] = CellType.Player;
         DrawCell(playerX, playerY);
     }
 }
 
-// ── Victory screen ──
-Console.SetCursorPosition(0, offsetY + height + 3);
+// ── End screen ──
+Console.SetCursorPosition(0, offsetY + height + endScreenOffset);
 if (won)
 {
-    Console.ForegroundColor = ConsoleColor.Green;
-    Console.WriteLine("  ╔════════════════════════════════╗");
-    Console.WriteLine("  ║   🎉  CONGRATULATIONS!  🎉     ║");
-    Console.WriteLine("  ║   You found the exit!          ║");
-    Console.WriteLine("  ╚════════════════════════════════╝");
+    Console.ForegroundColor = winColor;
+    Console.WriteLine(winMessage);
     Console.ResetColor();
 }
 else
 {
-    Console.ForegroundColor = ConsoleColor.Red;
-    Console.WriteLine("\n  Game abandoned. See you soon!");
+    Console.ForegroundColor = loseColor;
+    Console.WriteLine(loseMessage);
     Console.ResetColor();
 }
 
-Console.SetCursorPosition(0, offsetY + height + 8);
-Console.WriteLine("  Press any key to quit...");
+Console.SetCursorPosition(0, offsetY + height + exitPromptOffset);
+Console.WriteLine(exitPrompt);
 Console.CursorVisible = true;
 Console.ReadKey(true);
+
+// ── Types ──
+enum CellType { Corridor, Wall, Player, Exit }
